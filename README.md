@@ -3,7 +3,7 @@
 ## Requirements
 
 ```text
-1. .NET Framework 4.5.2
+1. .NET Framework 4.5.2+
 2. WMF 5.1
 ```
 
