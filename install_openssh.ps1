@@ -35,15 +35,27 @@ function Get_Download_URL {
 
     if ([Environment]::Is64BitProcess) {
         Log_Write "Install Win64 OpenSSH"
-        $openssh_url = $openssh_base_url + "/OpenSSH-Win32.zip"
+        $openssh_url = $openssh_base_url + "/OpenSSH-Win64.zip"
     }
     else {
         Log_Write "Install Win32 OpenSSH"
-        $openssh_url = $openssh_base_url + "/OpenSSH-Win64.zip"
+        $openssh_url = $openssh_base_url + "/OpenSSH-Win32.zip"
     }
     return $openssh_url
 }
 
+
+function Get_Unzip_Path {
+    $unzip_path = ""
+    if ([Environment]::Is64BitProcess) {
+        $unzip_path = ".\OpenSSH-Win64"
+    }
+    else {
+        $unzip_path = ".\OpenSSH-Win32"
+    }
+    Log_Write "Unzip path -> [$unzip_path]"
+    return $unzip_path
+}
 
 function Create_OpenSSH_Install_Folder {
     param ([string]$dir)
@@ -58,13 +70,25 @@ function Create_OpenSSH_Install_Folder {
 
 function Create_Ssh_Firewall_Rule {
     try {
-        New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Firewall' |
+        New-NetFirewallRule -Name sshd -DisplayName "OpenSSH Firewall" |
         -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
     }
     catch {
-        Log_Write_Error "Create Firewall Failed"
+        Log_Write "Create Firewall Failed"
     }
 }
+
+
+function Start_Ssh_Service {
+    Log_Write "Strating SSH Service"
+    Set-Service sshd -StartupType Automatic
+    Set-Service ssh-agent -StartupType Automatic
+    Start-Service sshd
+    Start-Service ssh-agent
+    Get-Service sshd
+    Get-Service ssh-agent
+}
+
 
 function OpenSSH_Installation {
     param ([string]$openssh_url)
@@ -75,7 +99,8 @@ function OpenSSH_Installation {
     $openssh_install_folder = Join-Path -Path ${env:ProgramFiles} -ChildPath "OpenSSH"
     Create_OpenSSH_Install_Folder $openssh_install_folder
     Unzip_File $openssh_zip "."
-    $unzipped_path = ".\OpenSSH-Win32"
+
+    $unzipped_path = Get_Unzip_Path
     Copy-Item -Path "$unzipped_path\*" -Destination $openssh_install_folder -Recurse
     Remove-Item -Path "$unzipped_path" -Force -Recurse
     Remove-Item $openssh_zip
@@ -88,13 +113,7 @@ function OpenSSH_Installation {
     # generate key
     "$openssh_install_folder\ssh-keygen.exe -A"
 
-    Log_Write "Strating SSH Service"
-    Set-Service sshd -StartupType Automatic
-    Set-Service ssh-agent -StartupType Automatic
-    Start-Service sshd
-    Start-Service ssh-agent
-    Get-Service sshd
-    Get-Service ssh-agent
+    Start_Ssh_Service
     Log_Write "Install SSH Service completed!"
 
     # add firewall for sshd
